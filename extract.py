@@ -9,6 +9,10 @@ genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 PROMPT = """You are watching an Instagram reel. Identify the single main resource,
 tool, product, or place mentioned or shown in the video (the thing worth remembering).
 
+The reel's caption is included below the video — captions often contain the actual
+link or name that is only spoken or shown briefly on screen, so prefer it over a
+guess when it's present.
+
 Return ONLY valid JSON, no markdown fences, matching this schema:
 {
   "title": string,
@@ -29,9 +33,13 @@ or clearly stated.
 """
 
 
-def extract_from_video(video_path: str) -> dict:
+def extract_from_video(video_path: str, caption: str = "") -> dict:
     model = genai.GenerativeModel("gemini-1.5-flash")
     video_file = genai.upload_file(path=video_path)
+
+    prompt = PROMPT
+    if caption:
+        prompt = f"{PROMPT}\n\nCaption:\n{caption}"
 
     try:
         while video_file.state.name == "PROCESSING":
@@ -41,7 +49,7 @@ def extract_from_video(video_path: str) -> dict:
         if video_file.state.name == "FAILED":
             raise RuntimeError(f"Gemini file processing failed: {video_file.state.name}")
 
-        response = model.generate_content([video_file, PROMPT])
+        response = model.generate_content([video_file, prompt])
     finally:
         genai.delete_file(video_file.name)
 

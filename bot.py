@@ -1,13 +1,13 @@
 import asyncio
 import logging
 import os
-import tempfile
+import uuid
 
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
-from downloader import download_reel
+from downloader import cleanup_reel_files, download_reel
 from extract import extract_from_video
 from notion_push import push_resource
 
@@ -20,9 +20,11 @@ DOWNLOAD_DIR = "downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 
-async def process_video(update: Update, video_path: str, source_url: str) -> None:
+async def process_video(
+    update: Update, video_path: str, source_url: str, caption: str, file_id: str
+) -> None:
     try:
-        extracted = await asyncio.to_thread(extract_from_video, video_path)
+        extracted = await asyncio.to_thread(extract_from_video, video_path, caption)
         await asyncio.to_thread(
             push_resource, extracted, source_reel_url=source_url, creator_handle=""
         )
@@ -34,7 +36,7 @@ async def process_video(update: Update, video_path: str, source_url: str) -> Non
         logger.exception("Failed to process video")
         await update.message.reply_text(f"Failed to process: {exc}")
     finally:
-        os.remove(video_path)
+        cleanup_reel_files(DOWNLOAD_DIR, file_id)
 
 
 async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -44,12 +46,19 @@ async def handle_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     await update.message.reply_text("Got it, processing...")
 
+    file_id = uuid.uuid4().hex
+    video_path = os.path.join(DOWNLOAD_DIR, f"{file_id}.mp4")
+
     tg_file = await context.bot.get_file(video.file_id)
-    with tempfile.NamedTemporaryFile(dir=DOWNLOAD_DIR, suffix=".mp4", delete=False) as tmp:
-        video_path = tmp.name
     await tg_file.download_to_drive(video_path)
 
-    await process_video(update, video_path, source_url=update.message.caption or "")
+    await process_video(
+        update,
+        video_path,
+        source_url="",
+        caption=update.message.caption or "",
+        file_id=file_id,
+    )
 
 
 async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -60,7 +69,7 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text("Downloading reel...")
 
     try:
-        video_path = await asyncio.to_thread(download_reel, url, DOWNLOAD_DIR)
+        reel = await asyncio.to_thread(download_reel, url, DOWNLOAD_DIR)
     except Exception as exc:
         logger.exception("Failed to download reel")
         await update.message.reply_text(
@@ -68,7 +77,9 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         )
         return
 
-    await process_video(update, video_path, source_url=url)
+    await process_video(
+        update, reel.video_path, source_url=url, caption=reel.caption, file_id=reel.file_id
+    )
 
 
 def main() -> None:
