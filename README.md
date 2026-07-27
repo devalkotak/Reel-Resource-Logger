@@ -31,6 +31,10 @@ Schema:
 
 - [x] Notion DB created + schema defined
 - [x] Code: bot.py, extract.py, notion_push.py, downloader.py (yt-dlp link fallback)
+- [x] Bug pass: Notion API version pin, blocking-call fix (asyncio.to_thread), Gemini poll backoff, yt-dlp output-path fix
+- [x] Caption capture (yt-dlp description + Telegram caption) fed into Gemini as extra context
+- [x] Guaranteed cleanup of all downloaded video/fragment files after each run
+- [x] SETUP.md written — step-by-step key/token guide (Telegram, Gemini, Notion, Railway)
 - [ ] Telegram bot token (BotFather)
 - [ ] Gemini API key
 - [ ] Notion integration token + share DB page with integration
@@ -40,9 +44,14 @@ Schema:
 ## Files
 
 - `bot.py` — Telegram handler (video or link in, routes to shared `process_video`)
-- `downloader.py` — yt-dlp fallback to pull video file from a plain IG link
-- `extract.py` — Gemini call + JSON extraction prompt
+- `downloader.py` — yt-dlp fallback to pull video + caption from a plain IG link, plus cleanup helper
+- `extract.py` — Gemini call + JSON extraction prompt (caption-aware)
 - `notion_push.py` — maps extracted JSON to Notion page props, pushes via API
 - `requirements.txt`
 - `railway.json` / `Procfile`
 - `.env.example` — required env vars (no real secrets committed)
+- `SETUP.md` — key/token setup walkthrough
+
+## Next session
+
+Pick up at: get the 3 keys via SETUP.md (Telegram, Gemini, Notion), fill `.env`, run `python bot.py` locally, forward a real reel, verify a row lands in Notion. Then deploy to Railway.
