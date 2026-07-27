@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 import google.generativeai as genai
 
@@ -32,14 +33,17 @@ def extract_from_video(video_path: str) -> dict:
     model = genai.GenerativeModel("gemini-1.5-flash")
     video_file = genai.upload_file(path=video_path)
 
-    while video_file.state.name == "PROCESSING":
-        video_file = genai.get_file(video_file.name)
+    try:
+        while video_file.state.name == "PROCESSING":
+            time.sleep(2)
+            video_file = genai.get_file(video_file.name)
 
-    if video_file.state.name == "FAILED":
-        raise RuntimeError(f"Gemini file processing failed: {video_file.state.name}")
+        if video_file.state.name == "FAILED":
+            raise RuntimeError(f"Gemini file processing failed: {video_file.state.name}")
 
-    response = model.generate_content([video_file, PROMPT])
-    genai.delete_file(video_file.name)
+        response = model.generate_content([video_file, PROMPT])
+    finally:
+        genai.delete_file(video_file.name)
 
     text = response.text.strip()
     if text.startswith("```"):

@@ -3,7 +3,7 @@ from datetime import date
 
 from notion_client import Client
 
-client = Client(auth=os.environ["NOTION_TOKEN"])
+client = Client(auth=os.environ["NOTION_TOKEN"], notion_version="2025-09-03")
 DATA_SOURCE_ID = os.environ["NOTION_DATA_SOURCE_ID"]
 
 

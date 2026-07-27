@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import tempfile
@@ -21,8 +22,10 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 async def process_video(update: Update, video_path: str, source_url: str) -> None:
     try:
-        extracted = extract_from_video(video_path)
-        push_resource(extracted, source_reel_url=source_url, creator_handle="")
+        extracted = await asyncio.to_thread(extract_from_video, video_path)
+        await asyncio.to_thread(
+            push_resource, extracted, source_reel_url=source_url, creator_handle=""
+        )
         await update.message.reply_text(
             f"Logged: {extracted['title']} ({extracted['category']}, "
             f"confidence: {extracted['confidence']})"
@@ -57,7 +60,7 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await update.message.reply_text("Downloading reel...")
 
     try:
-        video_path = download_reel(url, download_dir=DOWNLOAD_DIR)
+        video_path = await asyncio.to_thread(download_reel, url, DOWNLOAD_DIR)
     except Exception as exc:
         logger.exception("Failed to download reel")
         await update.message.reply_text(
