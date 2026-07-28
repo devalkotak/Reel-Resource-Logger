@@ -4,14 +4,15 @@ import os
 import uuid
 
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from telegram import Update
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 from downloader import cleanup_reel_files, download_reel
 from extract import extract_from_video
 from notion_push import push_resource
-
-load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,14 +25,16 @@ async def process_video(
     update: Update, video_path: str, source_url: str, caption: str, file_id: str
 ) -> None:
     try:
-        extracted = await asyncio.to_thread(extract_from_video, video_path, caption)
-        await asyncio.to_thread(
-            push_resource, extracted, source_reel_url=source_url, creator_handle=""
-        )
-        await update.message.reply_text(
-            f"Logged: {extracted['title']} ({extracted['category']}, "
-            f"confidence: {extracted['confidence']})"
-        )
+        resources = await asyncio.to_thread(extract_from_video, video_path, caption)
+        for extracted in resources:
+            await asyncio.to_thread(
+                push_resource, extracted, source_reel_url=source_url, creator_handle=""
+            )
+        lines = [
+            f"Logged: {r['title']} ({r['category']}, confidence: {r['confidence']})"
+            for r in resources
+        ]
+        await update.message.reply_text("\n".join(lines))
     except Exception as exc:
         logger.exception("Failed to process video")
         await update.message.reply_text(f"Failed to process: {exc}")

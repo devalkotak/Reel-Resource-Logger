@@ -5,7 +5,7 @@ Share Instagram reel via native share sheet -> auto-extract resource/tool/link m
 ## Architecture
 
 - **Ingestion:** Telegram bot (IG share sheet supports Telegram natively, no OAuth). Catches forwarded video file directly, or plain link (yt-dlp/instaloader fallback if IG blocks link-only downloads).
-- **Extraction:** Gemini API (gemini-1.5-flash, free tier) — send video directly, model watches + transcribes audio, no manual frame/audio extraction. Structured JSON output: title, category, tags, link, summary, price, confidence.
+- **Extraction:** Gemini API via `google-genai` SDK (model: `gemini-flash-latest`) — send video directly, model watches + transcribes audio, no manual frame/audio extraction. Returns a JSON array (one reel can name multiple resources), each with: title, category, tags, link, summary, price, confidence. Model infers the real URL from a spoken/shown name when no domain is given (marked confidence "Low" when inferred).
 - **Storage:** Notion API (integration token scoped to shared pages only).
 - **Hosting:** Railway free tier (500 hrs/month) — chosen over Render (cold-starts) and Cloudflare Workers (video/timeout size limits).
 
@@ -17,7 +17,7 @@ Data source ID: `2d6fb477-9d83-48c1-98b5-85e83964e283`
 Schema:
 - Title (title)
 - Category (select, fixed): Tool / App, Website / Platform, Product, Book / Course, Article / Guide, Recipe, Place / Travel, Service, Other
-- Domain Tags (multi-select, expandable): AI, Productivity, Fitness, Design, Finance, Travel, Cooking, Fashion, Tech, Marketing
+- Domain Tags (multi-select, open-ended): model chooses 1-4 specific tags per resource, no fixed taxonomy — Notion auto-creates new options as they appear
 - Resource Link (url)
 - Source Reel (url)
 - Summary (text)
@@ -35,11 +35,15 @@ Schema:
 - [x] Caption capture (yt-dlp description + Telegram caption) fed into Gemini as extra context
 - [x] Guaranteed cleanup of all downloaded video/fragment files after each run
 - [x] SETUP.md written — step-by-step key/token guide (Telegram, Gemini, Notion, Railway)
-- [ ] Telegram bot token (BotFather)
-- [ ] Gemini API key
-- [ ] Notion integration token + share DB page with integration
-- [ ] Railway account setup
-- [ ] Runtime test (nothing has executed yet — code is unverified against real APIs)
+- [x] All 3 keys obtained, `.env` filled, bot run locally end-to-end against real APIs
+- [x] Fixed: `load_dotenv()` import order, yt-dlp version bump
+- [x] Migrated Gemini calls from deprecated `google-generativeai` to `google-genai` SDK (new AQ-format API keys aren't accepted by the old SDK's auth path)
+- [x] Fixed model name churn (`gemini-1.5-flash` retired -> `gemini-2.5-flash` new-project-restricted -> settled on `gemini-flash-latest`)
+- [x] Open-ended Domain Tags (model picks freely, no fixed list)
+- [x] Prompt hardened: model must watch/listen for name even if no explicit URL is spoken, and infer the real site URL from the name using its own knowledge when no domain is given
+- [x] Multi-resource support: one reel can yield multiple resources, each becomes its own Notion page
+- [ ] Railway deploy
+- [ ] Verify inferred-link accuracy on a real batch of reels (spot-check a few Notion rows)
 
 ## Files
 
@@ -54,4 +58,4 @@ Schema:
 
 ## Next session
 
-Pick up at: get the 3 keys via SETUP.md (Telegram, Gemini, Notion), fill `.env`, run `python bot.py` locally, forward a real reel, verify a row lands in Notion. Then deploy to Railway.
+Local end-to-end run confirmed working (Telegram -> download -> Gemini -> Notion). Pick up at: spot-check a batch of real reels for inferred-link accuracy, then deploy to Railway.
